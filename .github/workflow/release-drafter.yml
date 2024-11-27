@@ -1,0 +1,53 @@
+name: Release Drafter
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - closed
+
+jobs:
+  draft-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0   # Fetch entire history (necessary for tags)
+          fetch-tags: true # Ensure tags are fetched
+
+      - name: Get latest tag version
+        id: get_version
+        run: |
+          # Get the latest tag (e.g., v1.0.0)
+          LATEST_TAG=$(git describe --tags --abbrev=0)
+          echo "Latest tag: $LATEST_TAG"
+
+          # Strip the 'v' from the tag (e.g., v1.0.0 -> 1.0.0)
+          VERSION=${LATEST_TAG#v}
+          echo "Version: $VERSION"
+
+          # Split the version into major, minor, patch
+          IFS='.' read -r major minor patch <<< "$VERSION"
+
+          echo "NEXT_MAJOR=$major" >> $GITHUB_ENV
+          echo "NEXT_MINOR=$minor" >> $GITHUB_ENV
+          echo "NEXT_PATCH=$patch" >> $GITHUB_ENV
+
+      - name: Run Release Drafter
+        uses: release-drafter/release-drafter@v6.0.0
+        with:
+          config-name: .github/release-drafter.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEXT_MAJOR: ${{ env.NEXT_MAJOR }}
+          NEXT_MINOR: ${{ env.NEXT_MINOR }}
+          NEXT_PATCH: ${{ env.NEXT_PATCH }}
+
